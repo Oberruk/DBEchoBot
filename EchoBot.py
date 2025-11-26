@@ -1,4 +1,7 @@
-
+#TODO
+#Add error handling for gen_echo()
+#Rework error handling and returns for get_scan()
+#Check if file can't be sent in get_scan_details_command() and if it can't, retry
 import requests
 import discord
 from discord import app_commands
@@ -39,7 +42,7 @@ def gen_echo():
 def get_scan(pin,ScanNumber):
     try:
         response = requests.get(f'https://api.echo.ac/v1/scan/{pin}', headers=headers)
-        if response.status_code == 204:
+        if response.status_code == 204: #Change to less specifc handling
             return 204
         uuid = response.json()[ScanNumber]['uuid']
         response = requests.get(f'https://api.echo.ac/v1/scan/{uuid}', headers=headers).json()
@@ -92,7 +95,7 @@ async def get_scan_details_command(interaction: discord.Interaction, pin: str, s
     with open(f'scan_{pin}_{scan_number}.json', 'w') as outfile:
         json.dump(scanResults, outfile)
     try:
-        await interaction.response.send_message(file=discord.File(f'scan_{pin}_{scan_number}.json'))
+        await interaction.response.send_message(file=discord.File(f'scan_{pin}_{scan_number}.json')) #Check for failure to send
     except Exception as e:
         await interaction.response.send_message(f'Unexpected error: {e}')
     if os.path.exists(f'scan_{pin}_{scan_number}.json'):
