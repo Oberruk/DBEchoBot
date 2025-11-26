@@ -68,7 +68,7 @@ async def gen_echo_link_command(interaction):
     echoLink = gen_echo()
     await interaction.response.send_message(f'{whatIsEchoMessage}\n\nPlease download and run this scan then post the does here.\nDownload link: {echoLink}')
 
-@tree.command(name="scan", description="Generates an echo link", guild=guild)
+@tree.command(name="scan", description="Gets the link for a scan done by given pin", guild=guild)
 async def get_scan_command(interaction: discord.Interaction, pin: str, scan_number: int = -1):
     scanResults = get_scan(pin, scan_number)
     try:
@@ -76,7 +76,7 @@ async def get_scan_command(interaction: discord.Interaction, pin: str, scan_numb
     except Exception as e:
         await interaction.response.send_message(f'Unexpected error: {e}')
 
-@tree.command(name="details", description="Generates an echo link", guild=guild)
+@tree.command(name="details", description="Gets a json file containing the details of a scan byy given pin", guild=guild)
 async def get_scan_details_command(interaction: discord.Interaction, pin: str, scan_number: int = -1):
     scanResults = get_scan(pin, scan_number)
     with open(f'scan_{pin}_{scan_number}.json', 'w') as outfile:
