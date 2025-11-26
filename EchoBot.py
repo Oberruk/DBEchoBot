@@ -76,7 +76,7 @@ async def get_scan_command(interaction: discord.Interaction, pin: str, scan_numb
     except Exception as e:
         await interaction.response.send_message(f'Unexpected error: {e}')
 
-@tree.command(name="details", description="Gets a json file containing the details of a scan byy given pin", guild=guild)
+@tree.command(name="details", description="Gets a json file containing the details of a scan by given pin", guild=guild)
 async def get_scan_details_command(interaction: discord.Interaction, pin: str, scan_number: int = -1):
     scanResults = get_scan(pin, scan_number)
     with open(f'scan_{pin}_{scan_number}.json', 'w') as outfile:
