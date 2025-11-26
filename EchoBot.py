@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 from dotenv import load_dotenv
 import os
+import json
 
 load_dotenv()
 
@@ -15,6 +16,17 @@ headers = {
 def gen_echo():
     response = requests.get('https://api.echo.ac/v1/user/pin', headers=headers).json()
     return response['links']['dayz']
+
+def get_scan(pin,ScanNumber):
+    try:
+        uuid = requests.get(f'https://api.echo.ac/v1/scan/{pin}', headers=headers).json()[ScanNumber]['uuid']
+        response = requests.get(f'https://api.echo.ac/v1/scan/{uuid}', headers=headers).json()
+        for item in response:
+            print(item)
+        return response
+    except Exception as e:
+        print(type(e))
+        return e
 
 whatIsEchoMessage = """What is Echo?
 Echo is a security tool we use to help verify the integrity of a player’s setup during specific checks or investigations. It’s not an in-game monitoring system — it's used externally by our team when needed.
@@ -52,9 +64,29 @@ guildId = os.environ['GUILD_ID']
 guild=discord.Object(id=guildId)
 
 @tree.command(name="echo", description="Generates an echo link", guild=guild)
-async def first_command(interaction):
+async def gen_echo_link_command(interaction):
     echoLink = gen_echo()
-    await interaction.response.send_message(whatIsEchoMessage + '\n\nPlease download and run this scan then post the does here.\nDownload link: ' + echoLink)
+    await interaction.response.send_message(f'{whatIsEchoMessage}\n\nPlease download and run this scan then post the does here.\nDownload link: {echoLink}')
+
+@tree.command(name="scan", description="Generates an echo link", guild=guild)
+async def get_scan_command(interaction: discord.Interaction, pin: str, scan_number: int = -1):
+    scanResults = get_scan(pin, scan_number)
+    try:
+        await interaction.response.send_message(f'Scan results: {scanResults["detection"]}\nhttps://beta.dash.echo.ac/scan/{scanResults["uuid"]}')
+    except Exception as e:
+        await interaction.response.send_message(f'Unexpected error: {e}')
+
+@tree.command(name="details", description="Generates an echo link", guild=guild)
+async def get_scan_details_command(interaction: discord.Interaction, pin: str, scan_number: int = -1):
+    scanResults = get_scan(pin, scan_number)
+    with open(f'scan_{pin}_{scan_number}.json', 'w') as outfile:
+        json.dump(scanResults, outfile)
+    try:
+        await interaction.response.send_message(file=discord.File(f'scan_{pin}_{scan_number}.json'))
+    except Exception as e:
+        await interaction.response.send_message(f'Unexpected error: {e}')
+    if os.path.exists(f'scan_{pin}_{scan_number}.json'):
+        os.remove(f'scan_{pin}_{scan_number}.json')
 
 token = os.environ['DISCORD_TOKEN']
 client.run(token)
