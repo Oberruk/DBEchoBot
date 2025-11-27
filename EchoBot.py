@@ -2,6 +2,8 @@
 #Add error handling for gen_echo()
 #Rework error handling and returns for get_scan()
 #Check if file can't be sent in get_scan_details_command() and if it can't, retry
+#input sanitization
+#/details crashes if scan_number is out of index range, not caught by try expect
 import requests
 import discord
 from discord import app_commands
@@ -51,6 +53,24 @@ def get_scan(pin,ScanNumber):
         return response
     except Exception as e:
         return e
+    
+def command_details(command):
+    chatMessage = ""
+    try:
+        commandDetails = tree.get_command(command, guild=guild)
+        chatMessage = f'/**{commandDetails.name}**\n{commandDetails.description}\n'
+        commandParams = commandDetails._params
+        if commandParams: #Will return true if there are commad parameters
+            chatMessage += "\nCommand parameters:\n"
+            for key in commandParams:
+                chatMessage += f'{commandParams[key].name}\n\t'
+                chatMessage += f'-{commandParams[key].description}\n'
+                if not(commandParams[key].required):
+                    chatMessage += "\t-*Optional*\n"
+                    chatMessage += f'\t-Default: *{commandParams[key].default}*\n'
+    except:
+        chatMessage = f'Command {command} Not Found'
+    return chatMessage
 
 class MyClient(discord.Client):
     async def on_ready(self):
@@ -69,37 +89,59 @@ guildId = os.environ['GUILD_ID']
 guild=discord.Object(id=guildId)
 
 @tree.command(name="echo", description="Generates an echo link", guild=guild)
-async def gen_echo_link_command(interaction):
-    echoLink = gen_echo()
-    await interaction.response.send_message(f'{whatIsEchoMessage}\n\nPlease download and run this scan then post the does here.\nDownload link: {echoLink}')
+@app_commands.describe(info_message = "Should the echo info message be displayed")
+async def gen_echo_link_command(interaction: discord.Interaction, info_message: bool = True):
+    #echoLink = gen_echo()
+    echoLink = "https://test.link/DoNotWantToSpamAPI"
+    chatMessage = f'{whatIsEchoMessage}Please download and run this scan then post the pin here.\nDownload link: {echoLink}'
+    if not(info_message):
+        chatMessage = f'Please download and run this scan then post the pin here.\nDownload link: {echoLink}'
+    await interaction.response.send_message(chatMessage)
 
 @tree.command(name="scan", description="Gets the link for a scan done by given pin", guild=guild)
-@app_commands.describe(pin = "PIN for the scan", scan_number = "Use to access specific scan done with PIN, default: latest scan (-1)")
+@app_commands.describe(pin = "PIN for the scan", scan_number = "Use to access specific scan done with PIN")
 async def get_scan_command(interaction: discord.Interaction, pin: str, scan_number: int = -1):
     scanResults = get_scan(pin, scan_number)
+    chatMessage = ""
     if scanResults == 204:
-        await interaction.response.send_message(f'Scan with PIN: {pin} not found')
+        chatMessage = f'Scan with PIN: {pin} not found'
         return
     try:
-        await interaction.response.send_message(f'Scan results: {scanResults["detection"]}\nhttps://beta.dash.echo.ac/scan/{scanResults["uuid"]}')
+        chatMessage = f'Scan results: {scanResults["detection"]}\nhttps://beta.dash.echo.ac/scan/{scanResults["uuid"]}'
     except Exception as e:
-        await interaction.response.send_message(f'Unexpected error: {e}')
+        chatMessage = f'Unexpected error: {e}'
+    await interaction.response.send_message(chatMessage)
 
 @tree.command(name="details", description="Gets a json file containing the details of a scan by given pin", guild=guild)
-@app_commands.describe(pin = "PIN for the scan", scan_number = "Use to access specific scan done with PIN, default: latest scan (-1)")
+@app_commands.describe(pin = "PIN for the scan", scan_number = "Use to access specific scan done with PIN")
 async def get_scan_details_command(interaction: discord.Interaction, pin: str, scan_number: int = -1):
     scanResults = get_scan(pin, scan_number)
     if scanResults == 204:
         await interaction.response.send_message(f'Scan with PIN: {pin} not found')
         return
-    with open(f'scan_{pin}_{scan_number}.json', 'w') as outfile:
+    fileName = f'scan_{pin}_{scan_number}.json'
+    with open(fileName, 'w') as outfile:
         json.dump(scanResults, outfile)
     try:
-        await interaction.response.send_message(file=discord.File(f'scan_{pin}_{scan_number}.json')) #Check for failure to send
+        await interaction.response.send_message(file=discord.File(fileName)) #Check for failure to send, also find a way to standradize response like get_scan_command()
     except Exception as e:
         await interaction.response.send_message(f'Unexpected error: {e}')
-    if os.path.exists(f'scan_{pin}_{scan_number}.json'):
-        os.remove(f'scan_{pin}_{scan_number}.json')
+    if os.path.exists(fileName):
+        os.remove(fileName)
+
+@tree.command(name="help", description="Get a list of commands or help details for a specific command", guild=guild)
+@app_commands.describe(command = "Specific command")
+async def help_command(interaction: discord.Interaction, command: str = None):
+    try:
+        chatMessage = "For more detials about a command use */help **command***\n"
+        if command:
+            chatMessage = command_details(command)
+        else:
+            for commandDetails in tree.get_commands(guild=guild):
+                chatMessage += f'/{commandDetails.name}\n'
+    except Exception as e:
+        chatMessage = f'Unexpected error: {e}'
+    await interaction.response.send_message(chatMessage)
 
 token = os.environ['DISCORD_TOKEN']
 client.run(token)
